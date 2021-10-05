@@ -31,7 +31,7 @@ private:
 
 public:
 	Map(int width, int height)
-		: width(width), height(height), canvas(new char[(width + 1) * height + 1]), mouse_x(-1), mouse_y(-1)
+		: width(width), height(height), canvas(new char[(width + 1) * height]), mouse_x(-1), mouse_y(-1)
 	{
 		bool faultInput = false;
 		if (this->width <= 0) {
@@ -45,21 +45,21 @@ public:
 		size = (this->width + 1) * this->height;
 		if (faultInput == true) {
 			delete canvas;
-			canvas = new char[size+1];
+			canvas = new char[size];
 		}
 		isMine = new bool[size];
 		isOpened = new bool[size];
 		nearMines = new int[size];
 		memset(isMine, false, size);
 		memset(isOpened, false, size);
-		memset(nearMines, 0, size);
+		memset(nearMines, 0, sizeof(int) * size);
 	}
-	virtual ~Map()
+	~Map()
 	{
-		delete[] canvas;
-		delete[] isMine;
-		delete[] isOpened;
 		delete[] nearMines;
+		delete[] isOpened;
+		delete[] isMine;
+		delete[] canvas;
 	}
 	int getWidth() {
 		return width;
@@ -137,6 +137,7 @@ public:
 		printf("%s", canvas);
 	}
 };
+
 class Mine
 {
 private:
@@ -144,7 +145,6 @@ private:
 	int*	mine_pos;
 
 public:
-
 	Mine()
 	{
 		srand((unsigned)time(NULL));
@@ -153,6 +153,10 @@ public:
 	}
 	~Mine()
 	{
+		for (int i = 0; i < num_mines; i++)
+		{
+			mine_pos[i] = NULL;
+		}
 		delete[] mine_pos;
 	}
 	void settingMine(Map* map) {
@@ -212,6 +216,7 @@ bool Map::checkWin(Mine* mine) {
 	}
 	else return false;
 }
+
 void Map::update(bool& isLooping, Mine* mine)
 {
 	if (clickedMousePosIndex() < 0) return;
@@ -220,7 +225,7 @@ void Map::update(bool& isLooping, Mine* mine)
 			return;
 	}
 	if (isMine[clickedMousePosIndex()] == true) {
-		strncpy(&canvas[clickedMousePosIndex()], "*", sizeof("*"));
+		canvas[clickedMousePosIndex()] = '*';
 		isLooping = false;
 		return;
 	}
@@ -232,18 +237,18 @@ void Map::update(bool& isLooping, Mine* mine)
 void Map::draw() {
 	for (int i = 0; i < size; i++)
 	{
-		strncpy(&canvas[i], "@", sizeof("@"));
-		if (isMine[clickedMousePosIndex()] == true)
+		canvas[i] = '@';
+		if (isMine[i] == true)
+			canvas[i] = '*';
+		/*if (isMine[clickedMousePosIndex()] == true)
 		{
 			if(isMine[i] == true)
-				strncpy(&canvas[i], "*", sizeof("*"));
-		}
+				&canvas[i] = '*';
+		}*/
 		if (isOpened[i] == true)
 		{
-			char num[20];
 			if (nearMines[i] >= 0) {
-				sprintf(num, "%d", nearMines[i]);
-				strncpy(&canvas[i], num, strlen(num));
+				canvas[i] = nearMines[i] + '0';
 			}
 		}
 	}
@@ -260,6 +265,7 @@ int main()
 	INPUT_RECORD irInBuf[128];
 	Map map(10, 10);
 	Mine mine;
+	
 	mine.settingMine(&map);
 
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
@@ -293,9 +299,9 @@ int main()
 					case MOUSE_EVENT:
 						MouseEventProc(irInBuf[i].Event.MouseEvent, &map);
 						break;
-					default:
+					/*default:
 						ErrorExit("Unknown event type");
-						break;
+						break;*/
 					}
 				}
 			}
