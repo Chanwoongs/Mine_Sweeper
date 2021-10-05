@@ -28,10 +28,11 @@ private:
 	char*	canvas;
 	bool*	isMine;
 	bool*	isOpened;
+	Input*	input;
 
 public:
 	Map(int width, int height)
-		: width(width), height(height), canvas(new char[(width + 1) * height + 1]), mouse_x(-1), mouse_y(-1)
+		: width(width), height(height), canvas(new char[(width + 1) * height + 1]), mouse_x(-1), mouse_y(-1), input(Input::GetInstance())
 	{
 		bool faultInput = false;
 		if (this->width <= 0) {
@@ -236,7 +237,24 @@ public:
 			Instance = new Input;
 		return Instance;
 	}
-	void readInput(Map* map);
+	void readInputs() {
+		if (!GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
+			cNumRead = 0;
+			return;
+		}
+		if (cNumRead == 0) return;
+
+		Borland::gotoxy(0, 14);
+		printf("number of inputs %d\n", cNumRead);
+
+		if (!ReadConsoleInput(
+			hStdin,      // input buffer handle
+			irInBuf,     // buffer to read into
+			128,         // size of read buffer
+			&cNumRead)) // number of records read
+			errorExit("ReadConsoleInput");
+	}
+	bool getMouseButtonDown();
 };
 Input* Input::Instance = nullptr;
 
@@ -255,6 +273,9 @@ bool Map::checkWin(Mine* mine) {
 }
 void Map::update(bool& isLooping, Mine* mine)
 {
+	if (input->getMouseButtonDown) {
+
+	}
 	if (clickedMousePosIndex() < 0) return;
 	for (int i = 0; i < height; i++) {
 		if (clickedMousePosIndex() == (width + 1) * (i + 1) - 1)
@@ -301,7 +322,7 @@ int main()
 	bool isLooping = true;
 	while (isLooping) {
 		map.clear();	
-		instance->readInput(&map);
+		instance->readInputs();
 		map.update(isLooping, &mine);
 		map.draw();
 		map.render();
@@ -328,7 +349,6 @@ void Input::errorExit(const char* lpszMessage)
 
 void Input::mouseEventProc(MOUSE_EVENT_RECORD mer, Map* map)
 {
-	Borland::gotoxy(0, 12);
 #ifndef MOUSE_HWHEELED
 #define MOUSE_HWHEELED 0x0008
 #endif
@@ -347,28 +367,16 @@ void Input::mouseEventProc(MOUSE_EVENT_RECORD mer, Map* map)
 	Borland::gotoxy(0, 0);
 }
 
-void Input::readInput(Map* map) {
-	if (GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
-		if (cNumRead > 0) {
-			if (!ReadConsoleInput(
-				hStdin,
-				irInBuf,
-				128,
-				&cNumRead))
-				errorExit("ReadConsoleInput");
-			for (i = 0; i < cNumRead; i++)
-			{
-				switch (irInBuf[i].EventType)
-				{
-				case MOUSE_EVENT:
-					mouseEventProc(irInBuf[i].Event.MouseEvent, map);
-					break;
-				default:
-					errorExit("Unknown event type");
-					break;
-				}
-			}
-		}
-	}
+bool Input::getMouseButtonDown() {
+	if (cNumRead == 0) return false;
 
+	for (int i = 0; i < cNumRead; i++)
+	{
+		if (irInBuf[i].EventType != MOUSE_EVENT) continue;
+
+		if (irInBuf[i].Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
+			return true;
+		}
+		return false;
+	}
 }
