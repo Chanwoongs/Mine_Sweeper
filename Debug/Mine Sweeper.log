@@ -1,2 +1,4 @@
 ﻿  mine_sweeper.cpp
+C:\Users\방찬웅\Desktop\Project\OOP\Mine_Sweeper\Mine Sweeper\Mine_Sweeper\mine_sweeper.cpp(364,20): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+C:\Users\방찬웅\Desktop\Project\OOP\Mine_Sweeper\Mine Sweeper\Mine_Sweeper\mine_sweeper.cpp(376,20): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
   Mine Sweeper.vcxproj -> C:\Users\방찬웅\Desktop\Project\OOP\Mine_Sweeper\Mine Sweeper\Mine_Sweeper\Debug\Mine Sweeper.exe

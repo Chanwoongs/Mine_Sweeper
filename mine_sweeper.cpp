@@ -14,8 +14,66 @@
 #include <time.h>
 #include "Utils.h"
 
+class Input;
 class Map;
 class Mine;
+
+class Input
+{
+	DWORD cNumRead, fdwMode;
+	INPUT_RECORD irInBuf[128];
+	HANDLE hStdin;
+	DWORD fdwSaveOldMode;
+	void errorExit(const char*);
+
+	static Input* Instance;
+
+	Input()
+	{
+		hStdin = GetStdHandle(STD_INPUT_HANDLE);
+		if (hStdin == INVALID_HANDLE_VALUE)
+			errorExit("GetStdHandle");
+		if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
+			errorExit("GetConsoleMode");
+		fdwMode = ENABLE_EXTENDED_FLAGS;
+		if (!SetConsoleMode(hStdin, fdwMode))
+			errorExit("SetConsoleMode");
+		fdwMode = ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT;
+		if (!SetConsoleMode(hStdin, fdwMode))
+			errorExit("SetConsoleMode");
+	}
+	~Input()
+	{
+		SetConsoleMode(hStdin, fdwSaveOldMode);
+	}
+public:
+
+	static Input* GetInstance() {
+		if (Instance == nullptr) {
+			Instance = new Input;
+		}
+		return Instance;
+	}
+
+	void readInputs(Map* map) {
+		if (!GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
+			cNumRead = 0;
+			return;
+		}
+		if (cNumRead == 0) return;
+
+		if (!ReadConsoleInput(
+			hStdin,
+			irInBuf,
+			128,
+			&cNumRead))
+			errorExit("ReadConsoleInput");
+	}
+
+	bool getMouseButtonDown(int button);
+	void getMousePosition(int& x, int& y);
+};
+Input* Input::Instance = nullptr;
 
 class Map {
 private:
@@ -28,10 +86,11 @@ private:
 	char*	canvas;
 	bool*	isMine;
 	bool*	isOpened;
+	Input*	input;
 
 public:
 	Map(int width, int height)
-		: width(width), height(height), canvas(new char[(width + 1) * height]), mouse_x(-1), mouse_y(-1)
+		: width(width), height(height), canvas(new char[(width + 1) * height]), mouse_x(-1), mouse_y(-1), input(Input::GetInstance())
 	{
 		bool faultInput = false;
 		if (this->width <= 0) {
@@ -164,11 +223,12 @@ public:
 	}
 	void settingMine(Map* map) {
 		int i = 0;
+		int z = 0;
 		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 		while (i < num_mines)
 		{
 			int k = 0;
-			int rand_num = rand() % 100;
+			int rand_num = rand() % 109;
 
 			for (int j = 0; j < map->getHeight(); j++) {
 				if (rand_num == ((map->getWidth() + 1) * (j + 1) - 1)) {
@@ -177,7 +237,7 @@ public:
 				}
 			}
 			if (k == 1) continue;
-			for (int j = 0; j < i; j++){
+			for (int j = 0; j < i; j++) {
 				if (mine_pos[j] == rand_num) {
 					rand_num = rand() % 100;
 				}
@@ -206,75 +266,6 @@ public:
 	}
 };
 
-class Input
-{
-	DWORD cNumRead, fdwMode, i;
-	INPUT_RECORD irInBuf[128];
-	HANDLE hStdin;
-	DWORD fdwSaveOldMode;
-	void errorExit(const char*);
-	void mouseEventProc(MOUSE_EVENT_RECORD, Map*);
-
-	static Input* Instance;
-
-	Input()
-	{
-		hStdin = GetStdHandle(STD_INPUT_HANDLE);
-		if (hStdin == INVALID_HANDLE_VALUE)
-			errorExit("GetStdHandle");
-		if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
-			errorExit("GetConsoleMode");
-		fdwMode = ENABLE_EXTENDED_FLAGS;
-		if (!SetConsoleMode(hStdin, fdwMode))
-			errorExit("SetConsoleMode");
-		fdwMode = ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT;
-		if (!SetConsoleMode(hStdin, fdwMode))
-			errorExit("SetConsoleMode");
-	}
-	~Input()
-	{
-
-		SetConsoleMode(hStdin, fdwSaveOldMode);
-	}
-public:
-
-	static Input* GetInstance() {
-		if (Instance == nullptr) {
-			Instance = new Input;
-		}
-		return Instance;
-	}
-
-	void readInputs(Map* map) {
-		if (!GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
-			cNumRead = 0;
-			return;
-		}
-		if (cNumRead == 0) return;
-
-		if (!ReadConsoleInput(
-			hStdin,
-			irInBuf,
-			128,
-			&cNumRead))
-			errorExit("ReadConsoleInput");
-		for (i = 0; i < cNumRead; i++)
-		{
-			switch (irInBuf[i].EventType)
-			{
-			case MOUSE_EVENT:
-				mouseEventProc(irInBuf[i].Event.MouseEvent, map);
-				break;
-				/*default:
-					ErrorExit("Unknown event type");
-					break;*/
-			}
-		}
-	}
-};
-
-Input* Input::Instance = nullptr;
-
 bool Map::checkWin(Mine* mine) {
 	int num = 0;
 	for (int i = 0; i < size; i++) {
@@ -291,6 +282,9 @@ bool Map::checkWin(Mine* mine) {
 
 void Map::update(bool& isLooping, Mine* mine)
 {
+	if (input->getMouseButtonDown(1)) {
+		input->getMousePosition((this->mouse_x), (this->mouse_y));
+	}
 	if (clickedMousePosIndex() < 0) return;
 	for (int i = 0; i < height; i++) {
 		if (clickedMousePosIndex() == (width + 1) * (i + 1) - 1)
@@ -326,7 +320,6 @@ void Map::draw() {
 	}
 }
 
-
 int main()
 {
 	Input* input = Input::GetInstance();
@@ -334,8 +327,6 @@ int main()
 	Mine mine;
 	
 	mine.settingMine(&map);
-
-
 
 	// game loop
 	bool isLooping = true;
@@ -352,7 +343,6 @@ int main()
 	else {
 		printf("\n\nGame Over\n\n");
 	}
-
 	
 	return 0;
 }
@@ -368,23 +358,28 @@ void Input::errorExit(const char* lpszMessage)
 	ExitProcess(0);
 }
 
-void Input::mouseEventProc(MOUSE_EVENT_RECORD mer, Map* map)
-{
-	Borland::gotoxy(0, 12);
-#ifndef MOUSE_HWHEELED
-#define MOUSE_HWHEELED 0x0008
-#endif
-	switch (mer.dwEventFlags)
+bool Input::getMouseButtonDown(int button) {
+	if (cNumRead == 0) return false;
+
+	for (int i = 0; i < cNumRead; i++)
 	{
-	case 0:
-		if (mer.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
-		{
-			if(mer.dwMousePosition.X >= 0 && mer.dwMousePosition.X < 10 && mer.dwMousePosition.Y >= 0 && mer.dwMousePosition.Y < 10)
-				map->setMouseClickPos(mer.dwMousePosition.X, mer.dwMousePosition.Y);
+		if (irInBuf[i].EventType != MOUSE_EVENT) continue;
+
+		if (irInBuf[i].Event.MouseEvent.dwButtonState == 1) {
+			return true;
 		}
-		break;
-	default:
-		break;
 	}
-	Borland::gotoxy(0, 0);
+	return false;
+}
+
+void Input::getMousePosition(int& x, int& y) {
+	for (int i = 0; i < cNumRead; i++)
+	{
+		if (irInBuf[i].EventType != MOUSE_EVENT) continue;
+		if (irInBuf[i].Event.MouseEvent.dwMousePosition.X >= 0 && irInBuf[i].Event.MouseEvent.dwMousePosition.X < 10 
+			&& irInBuf[i].Event.MouseEvent.dwMousePosition.Y >= 0 && irInBuf[i].Event.MouseEvent.dwMousePosition.Y < 10) {
+			x = irInBuf[i].Event.MouseEvent.dwMousePosition.X;
+			y = irInBuf[i].Event.MouseEvent.dwMousePosition.Y;
+		}
+	}
 }
