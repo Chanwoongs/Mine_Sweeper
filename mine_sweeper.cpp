@@ -118,12 +118,15 @@ public:
 	}
 	void setNearBlocks(int index) {
 		for (int i = 0; i < 3; i++) {
+			if (isOpened[index - 10 - i] == true) continue;
 			checkNearMines(index - 10 - i);
 		}
 		for (int i = 0; i < 3; i++) {
+			if (isOpened[index + 1 - i] == true) continue;
 			checkNearMines(index + 1 - i);
 		}
 		for (int i = 0; i < 3; i++) {
+			if (isOpened[index + 12 - i] == true) continue;
 			checkNearMines(index + 12 - i);
 		}
 	}
@@ -203,6 +206,75 @@ public:
 	}
 };
 
+class Input
+{
+	DWORD cNumRead, fdwMode, i;
+	INPUT_RECORD irInBuf[128];
+	HANDLE hStdin;
+	DWORD fdwSaveOldMode;
+	void errorExit(const char*);
+	void mouseEventProc(MOUSE_EVENT_RECORD, Map*);
+
+	static Input* Instance;
+
+	Input()
+	{
+		hStdin = GetStdHandle(STD_INPUT_HANDLE);
+		if (hStdin == INVALID_HANDLE_VALUE)
+			errorExit("GetStdHandle");
+		if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
+			errorExit("GetConsoleMode");
+		fdwMode = ENABLE_EXTENDED_FLAGS;
+		if (!SetConsoleMode(hStdin, fdwMode))
+			errorExit("SetConsoleMode");
+		fdwMode = ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT;
+		if (!SetConsoleMode(hStdin, fdwMode))
+			errorExit("SetConsoleMode");
+	}
+	~Input()
+	{
+
+		SetConsoleMode(hStdin, fdwSaveOldMode);
+	}
+public:
+
+	static Input* GetInstance() {
+		if (Instance == nullptr) {
+			Instance = new Input;
+		}
+		return Instance;
+	}
+
+	void readInputs(Map* map) {
+		if (!GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
+			cNumRead = 0;
+			return;
+		}
+		if (cNumRead == 0) return;
+
+		if (!ReadConsoleInput(
+			hStdin,
+			irInBuf,
+			128,
+			&cNumRead))
+			errorExit("ReadConsoleInput");
+		for (i = 0; i < cNumRead; i++)
+		{
+			switch (irInBuf[i].EventType)
+			{
+			case MOUSE_EVENT:
+				mouseEventProc(irInBuf[i].Event.MouseEvent, map);
+				break;
+				/*default:
+					ErrorExit("Unknown event type");
+					break;*/
+			}
+		}
+	}
+};
+
+Input* Input::Instance = nullptr;
+
 bool Map::checkWin(Mine* mine) {
 	int num = 0;
 	for (int i = 0; i < size; i++) {
@@ -254,58 +326,22 @@ void Map::draw() {
 	}
 }
 
-static HANDLE hStdin;
-static DWORD fdwSaveOldMode;
-static void ErrorExit(const char*);
-static void MouseEventProc(MOUSE_EVENT_RECORD, Map*);
 
 int main()
 {
-	DWORD cNumRead, fdwMode, i;
-	INPUT_RECORD irInBuf[128];
+	Input* input = Input::GetInstance();
 	Map map(10, 10);
 	Mine mine;
 	
 	mine.settingMine(&map);
 
-	hStdin = GetStdHandle(STD_INPUT_HANDLE);
-	if (hStdin == INVALID_HANDLE_VALUE)
-		ErrorExit("GetStdHandle");
-	if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
-		ErrorExit("GetConsoleMode");
-	fdwMode = ENABLE_EXTENDED_FLAGS;
-	if (!SetConsoleMode(hStdin, fdwMode))
-		ErrorExit("SetConsoleMode");
-	fdwMode = ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT;
-	if (!SetConsoleMode(hStdin, fdwMode))
-		ErrorExit("SetConsoleMode");
+
 
 	// game loop
 	bool isLooping = true;
 	while (isLooping) {
 		map.clear();	
-		if (GetNumberOfConsoleInputEvents(hStdin, &cNumRead)) {
-			if (cNumRead > 0) {
-				if (!ReadConsoleInput(
-					hStdin,  
-					irInBuf,     
-					128,         
-					&cNumRead))
-					ErrorExit("ReadConsoleInput");
-				for (i = 0; i < cNumRead; i++)
-				{
-					switch (irInBuf[i].EventType)
-					{
-					case MOUSE_EVENT:
-						MouseEventProc(irInBuf[i].Event.MouseEvent, &map);
-						break;
-					/*default:
-						ErrorExit("Unknown event type");
-						break;*/
-					}
-				}
-			}
-		}
+		input->readInputs(&map);
 		map.update(isLooping, &mine);
 		map.draw();
 		map.render();
@@ -317,12 +353,11 @@ int main()
 		printf("\n\nGame Over\n\n");
 	}
 
-	SetConsoleMode(hStdin, fdwSaveOldMode);
 	
 	return 0;
 }
 
-void ErrorExit(const char* lpszMessage)
+void Input::errorExit(const char* lpszMessage)
 {
 	fprintf(stderr, "%s\n", lpszMessage);
 
@@ -333,7 +368,7 @@ void ErrorExit(const char* lpszMessage)
 	ExitProcess(0);
 }
 
-void MouseEventProc(MOUSE_EVENT_RECORD mer, Map* map)
+void Input::mouseEventProc(MOUSE_EVENT_RECORD mer, Map* map)
 {
 	Borland::gotoxy(0, 12);
 #ifndef MOUSE_HWHEELED
