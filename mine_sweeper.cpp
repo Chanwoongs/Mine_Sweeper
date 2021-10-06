@@ -176,18 +176,8 @@ public:
 		nearMines[index] = num_of_near_mines;
 	}
 	void setNearBlocks(int index) {
-		for (int i = 0; i < 3; i++) {
-			if (isOpened[index - 10 - i] == true) continue;
-			checkNearMines(index - 10 - i);
-		}
-		for (int i = 0; i < 3; i++) {
-			if (isOpened[index + 1 - i] == true) continue;
-			checkNearMines(index + 1 - i);
-		}
-		for (int i = 0; i < 3; i++) {
-			if (isOpened[index + 12 - i] == true) continue;
-			checkNearMines(index + 12 - i);
-		}
+		if (isOpened[index] == true) return;
+		checkNearMines(index);
 	}
 	bool checkWin(Mine* mine);
 	void render()
