@@ -86,6 +86,7 @@ private:
 	char*	canvas;
 	bool*	isMine;
 	bool*	isOpened;
+	bool*	isWall;
 	Input*	input;
 
 public:
@@ -109,12 +110,15 @@ public:
 		isMine = new bool[size];
 		isOpened = new bool[size];
 		nearMines = new int[size];
+		isWall = new bool[size];
 		memset(isMine, false, size);
 		memset(isOpened, false, size);
-		memset(nearMines, 0, sizeof(int) * size);
+		memset(nearMines, -1, sizeof(int) * size);
+		memset(isWall, false, size);
 	}
 	~Map()
 	{
+		delete[] isWall;
 		delete[] nearMines;
 		delete[] isOpened;
 		delete[] isMine;
@@ -135,6 +139,7 @@ public:
 			isMine[(width + 1) * (i + 1) - 1] = false;
 			isOpened[(width + 1) * (i + 1) - 1] = false;
 			nearMines[(width + 1) * (i + 1) - 1] = -1;
+			isWall[(width + 1) * (i + 1) - 1] = true;
 		}
 	}
 	void draw();
@@ -152,8 +157,8 @@ public:
 	void checkNearMines(int index) {
 		if (index < 0 && index > size - 1) return;
 		if (isMine[index] == true) return;
-		if (isOpened[index] == true) return;
-		isOpened[index] = true;
+		if (isWall[index] == true) return;
+		if (isOpened[index] == false) isOpened[index] = true;
 		int num_of_near_mines = 0;
 		for (int i = 0; i < 3; i++)	{
 			if (index - 10 - i > 0 && index - 10 - i < size - 1) {
@@ -173,11 +178,22 @@ public:
 					++num_of_near_mines;
 			}
 		}
+		if (nearMines[index] != -1) return;
 		nearMines[index] = num_of_near_mines;
+		if (nearMines[index] > 0) isWall[index] = true;
 	}
 	void setNearBlocks(int index) {
-		if (isOpened[index] == true) return;
+
+		if (nearMines[index] > -1) return;
+
 		checkNearMines(index);
+
+		if (nearMines[index] == 0) {
+			setNearBlocks(index - 11);
+			setNearBlocks(index - 1);
+			setNearBlocks(index + 1);
+			setNearBlocks(index + 11);
+		}
 	}
 	bool checkWin(Mine* mine);
 	void render()
@@ -205,36 +221,37 @@ public:
 	}
 	~Mine()
 	{
-		for (int i = 0; i < num_mines; i++)
-		{
-			mine_pos[i] = NULL;
-		}
 		delete[] mine_pos;
 	}
 	void settingMine(Map* map) {
 		int i = 0;
 		int z = 0;
 		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-		while (i < num_mines)
+		
+		for (int i = 0; i < num_mines; i++)
 		{
 			int k = 0;
-			int rand_num = rand() % 109;
+			int rand_num = rand() % 110;
 
 			for (int j = 0; j < map->getHeight(); j++) {
 				if (rand_num == ((map->getWidth() + 1) * (j + 1) - 1)) {
 					k = 1;
+					i--;
 					break;
 				}
 			}
 			if (k == 1) continue;
+
 			for (int j = 0; j < i; j++) {
 				if (mine_pos[j] == rand_num) {
-					rand_num = rand() % 100;
+					while (mine_pos[j] == rand_num) {
+						rand_num = rand() % 110;
+					}
 				}
 			}
 			mine_pos[i] = rand_num;
-			i++;
 		}
+		
 		for (int j = 0; j < num_mines; j++)
 		{
 			map->setMine(mine_pos[j]);
@@ -294,13 +311,12 @@ void Map::draw() {
 	for (int i = 0; i < size; i++)
 	{
 		canvas[i] = '@';
-		if (isMine[i] == true)
-			canvas[i] = '*';
-		/*if (isMine[clickedMousePosIndex()] == true)
+
+		if (isMine[clickedMousePosIndex()] == true)
 		{
 			if(isMine[i] == true)
-				&canvas[i] = '*';
-		}*/
+				canvas[i] = '*';
+		}
 		if (isOpened[i] == true)
 		{
 			if (nearMines[i] >= 0) {
