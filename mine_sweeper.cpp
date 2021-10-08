@@ -189,10 +189,14 @@ public:
 		checkNearMines(index);
 
 		if (nearMines[index] == 0) {
+			setNearBlocks(index - 12);
 			setNearBlocks(index - 11);
+			setNearBlocks(index - 10);
 			setNearBlocks(index - 1);
 			setNearBlocks(index + 1);
+			setNearBlocks(index + 10);
 			setNearBlocks(index + 11);
+			setNearBlocks(index + 12);
 		}
 	}
 	bool checkWin(Mine* mine);
@@ -311,7 +315,8 @@ void Map::draw() {
 	for (int i = 0; i < size; i++)
 	{
 		canvas[i] = '@';
-
+		if (isMine[i] == true)
+			canvas[i] = '*';
 		if (isMine[clickedMousePosIndex()] == true)
 		{
 			if(isMine[i] == true)
@@ -331,6 +336,7 @@ int main()
 	Input* input = Input::GetInstance();
 	Map map(10, 10);
 	Mine mine;
+	bool start = false;
 	
 	mine.settingMine(&map);
 
@@ -341,7 +347,10 @@ int main()
 		input->readInputs(&map);
 		map.update(isLooping, &mine);
 		map.draw();
-		map.render();
+		if (input->getMouseButtonDown(1) || start == false) {
+			map.render();
+			start = true;
+		}
 	}
 	if (map.checkWin(&mine)) {
 		printf("\n\nYou Win\n\n");
